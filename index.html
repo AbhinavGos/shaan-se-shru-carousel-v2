@@ -799,88 +799,13 @@ async function startWebAR() {
     const visualCardWidth = 0.92;
     const visualCardHeight = visualCardWidth * targetAspect;
 
-    // ── 1. Physical Gilded Baseplate Plinth (z = 0.001) ──
-    const basePlateGroup = new THREE.Group();
-    basePlateGroup.position.set(0, 0, 0.001);
-    cardRoot.add(basePlateGroup);
-
-    // Dark obsidian/cardstock backing mat matching target card proportions
-    const baseMatGeo = new THREE.PlaneGeometry(0.96, visualCardHeight * 0.98);
-    const baseMatMat = new THREE.MeshBasicMaterial({
-      color: 0x120a0f,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.72
-    });
-    const baseMatMesh = new THREE.Mesh(baseMatGeo, baseMatMat);
-    basePlateGroup.add(baseMatMesh);
-
-    // Ornate Royal Center Emblem Ring flat on paper
-    const ringGeo = new THREE.RingGeometry(0.16, 0.21, 48);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: currentTheme.edgeColor,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.8
-    });
-    const centerRing = new THREE.Mesh(ringGeo, ringMat);
-    basePlateGroup.add(centerRing);
-
-    // Gold Foil Trim Rails on baseplate
-    const trimMat = new THREE.MeshStandardMaterial({
-      color: currentTheme.edgeColor,
-      metalness: 0.92,
-      roughness: 0.18
-    });
-    const hRailGeo = new THREE.BoxGeometry(0.98, 0.012, 0.004);
-    const topRail = new THREE.Mesh(hRailGeo, trimMat);
-    topRail.position.set(0, (visualCardHeight * 0.98) / 2, 0.002);
-    basePlateGroup.add(topRail);
-
-    const btmRail = new THREE.Mesh(hRailGeo, trimMat);
-    btmRail.position.set(0, -(visualCardHeight * 0.98) / 2, 0.002);
-    basePlateGroup.add(btmRail);
-
-    // ── 2. Mechanical Pedestal & Easel Struts Connecting Base to Carousel ──
-    // Base Mount Bar directly on paper
-    const mountBarGeo = new THREE.BoxGeometry(visualCardWidth * 0.82, 0.024, 0.016);
-    const mountBarMesh = new THREE.Mesh(mountBarGeo, trimMat);
-    mountBarMesh.position.set(0, -visualCardHeight * 0.22, 0.008);
-    cardRoot.add(mountBarMesh);
-
-    // Dual Gilded Easel Struts rising at 45° from Base to Carousel
-    const strutRadius = 0.006;
-    const strutHeight = 0.26;
-    const strutGeo = new THREE.CylinderGeometry(strutRadius, strutRadius, strutHeight, 16);
-    strutGeo.rotateX(Math.PI / 4);
-
-    const leftStrut = new THREE.Mesh(strutGeo, trimMat);
-    leftStrut.position.set(-visualCardWidth * 0.28, -visualCardHeight * 0.10, 0.036);
-    cardRoot.add(leftStrut);
-
-    const rightStrut = new THREE.Mesh(strutGeo, trimMat);
-    rightStrut.position.set(visualCardWidth * 0.28, -visualCardHeight * 0.10, 0.036);
-    cardRoot.add(rightStrut);
-
-    // Deep Realistic Contact Ground Shadow
-    const shadowGeo = new THREE.PlaneGeometry(visualCardWidth * 1.5, visualCardHeight * 1.3);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      map: createContactShadowTexture(),
-      transparent: true,
-      opacity: 0.75,
-      depthWrite: false
-    });
-    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-    shadowMesh.position.set(0, 0, 0.002);
-    cardRoot.add(shadowMesh);
-
-    // ── 3. PIVOT GROUP: Orientation & Spatial Grounding ──
+    // ── PIVOT GROUP: Orientation & Spatial Grounding ──
     cardPivotGroup = new THREE.Group();
     const isCarousel = (CONFIG.layout === 'carousel');
     const isCenter = (CONFIG.anchorPosition === 'center' || isCarousel);
 
     if (isCenter) {
-      cardPivotGroup.position.set(0, 0, 0.045);
+      cardPivotGroup.position.set(0, 0, 0.025);
       const initialTiltRad = (CONFIG.tiltAngle !== undefined ? CONFIG.tiltAngle : 45) * (Math.PI / 180);
       cardPivotGroup.rotation.x = initialTiltRad;
     } else if (CONFIG.anchorPosition === 'flush') {
@@ -893,11 +818,25 @@ async function startWebAR() {
     }
     cardRoot.add(cardPivotGroup);
 
-    // Carousel Shelf / Hinge Bar directly supporting the cards
-    const shelfGeo = new THREE.BoxGeometry(visualCardWidth * 0.96, 0.022, 0.02);
-    const shelfMesh = new THREE.Mesh(shelfGeo, trimMat);
-    shelfMesh.position.set(0, 0, 0.002);
-    cardPivotGroup.add(shelfMesh);
+    // ── Subtle Contact Ground Shadow on Card Plane ──
+    const shadowGeo = isCenter
+      ? new THREE.PlaneGeometry(visualCardWidth * 1.5, visualCardHeight * 1.3)
+      : new THREE.PlaneGeometry(visualCardWidth * 1.3, 0.35);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: createContactShadowTexture(),
+      transparent: true,
+      opacity: isCenter ? 0.35 : 0.65,
+      depthWrite: false
+    });
+    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    if (!isCenter) {
+      shadowMesh.rotation.x = -Math.PI / 2;
+      shadowMesh.position.set(0, 0, 0.001);
+      cardPivotGroup.add(shadowMesh);
+    } else {
+      shadowMesh.position.set(0, 0, 0.001);
+      cardRoot.add(shadowMesh);
+    }
 
     // ── 3. Content Presentation (Video AR or Multi-Card Deck) ──
     if (CONFIG.videoUrl) {
@@ -1019,7 +958,7 @@ async function startWebAR() {
     let isPoseInitialized = false;
     let hasEverLocked = false;
     let lastTrackedTime = 0;
-    const HOLD_GRACE_PERIOD_MS = 3200; // 3.2s inertial hold when phone is straightened or distance deviates
+    const HOLD_GRACE_PERIOD_MS = 1500; // 1.5s inertial hold when phone is straightened or distance deviates
 
     anchor.onTargetFound = () => {
       isTargetFound = true;
